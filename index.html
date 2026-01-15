@@ -14,6 +14,45 @@
     <link rel="apple-touch-icon" href="icons/javascript.png" />
   </head>
   <body>
+    <!-- LOGIN OVERLAY -->
+    <div
+      id="loginOverlay"
+      style="
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex !important; /* PAKSA */
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      "
+    >
+      <div
+        style="
+          background: white;
+          padding: 25px;
+          border-radius: 8px;
+          width: 300px;
+          text-align: center;
+        "
+      >
+        <h3>Login Sistem SPK</h3>
+        <input
+          id="loginUsername"
+          placeholder="Username"
+          style="width: 100%; margin: 8px 0"
+        />
+        <input
+          id="loginPassword"
+          type="password"
+          placeholder="Password"
+          style="width: 100%; margin: 8px 0"
+        />
+        <button onclick="login()" style="width: 100%">Login</button>
+        <p id="loginStatus" style="color: red; font-size: 13px"></p>
+      </div>
+    </div>
+
     <div class="card">
       <div class="header">
         <h1>SURAT PERINTAH KERJA (SPK)</h1>
@@ -214,6 +253,6 @@
       });
     </script>
 
-    <script src="app.js"></script>
+    <script src="app.js" defer></script>
   </body>
 </html>
