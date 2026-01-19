@@ -1,5 +1,5 @@
 /* =========================================================
-   AUTH + LOGIN (STABLE LOCALHOST FIX)
+   AUTH + LOGIN (5 USERS)
    ========================================================= */
 
 let authDB = null;
@@ -15,11 +15,19 @@ authReq.onupgradeneeded = (e) => {
   if (!db.objectStoreNames.contains("users")) {
     db.createObjectStore("users", { keyPath: "username" });
   }
+
+  if (!db.objectStoreNames.contains("penyedia")) {
+    db.createObjectStore("penyedia", {
+      keyPath: "id",
+      autoIncrement: true,
+    });
+  }
 };
 
 authReq.onsuccess = (e) => {
   authDB = e.target.result;
-  createDefaultUser().then(checkLogin);
+
+  createDefaultUsers().then(seedPenyedia).then(loadPenyedia).then(checkLogin);
 };
 
 authReq.onerror = () => {
@@ -41,25 +49,55 @@ async function hashPassword(text) {
     .join("");
 }
 
-/* --- CREATE DEFAULT USER --- */
-async function createDefaultUser() {
+/* --- CREATE 5 DEFAULT USERS --- */
+async function createDefaultUsers() {
+  // Daftar 5 user default
+  const defaultUsers = [
+    { username: "admin", password: "admin123" },
+    { username: "sekre", password: "sekre123" },
+    { username: "ppk", password: "ppk12345" },
+    { username: "bendahara", password: "bend123" },
+    { username: "staff", password: "staff123" },
+  ];
+
   return new Promise((resolve) => {
     const tx = authDB.transaction("users", "readonly");
     const store = tx.objectStore("users");
-    const req = store.get("admin");
 
-    req.onsuccess = async () => {
-      if (!req.result) {
-        const pw = await hashPassword("admin123");
-        const tx2 = authDB.transaction("users", "readwrite");
-        tx2.objectStore("users").add({
-          username: "admin",
-          password: pw,
-        });
-        console.log("User admin dibuat");
+    // Cek apakah user sudah ada
+    const checkPromises = defaultUsers.map((user) => {
+      return new Promise((res) => {
+        const req = store.get(user.username);
+        req.onsuccess = () => {
+          res({
+            username: user.username,
+            exists: !!req.result,
+            password: user.password,
+          });
+        };
+      });
+    });
+
+    Promise.all(checkPromises).then(async (results) => {
+      const tx2 = authDB.transaction("users", "readwrite");
+      const store2 = tx2.objectStore("users");
+
+      for (let result of results) {
+        if (!result.exists) {
+          const hashedPw = await hashPassword(result.password);
+          store2.add({
+            username: result.username,
+            password: hashedPw,
+          });
+          console.log(`User ${result.username} dibuat`);
+        }
       }
-      resolve();
-    };
+
+      tx2.oncomplete = () => {
+        console.log("Inisialisasi user selesai");
+        resolve();
+      };
+    });
   });
 }
 
@@ -89,9 +127,63 @@ async function login() {
     const hash = await hashPassword(password);
     if (hash === req.result.password) {
       sessionStorage.setItem("login", "true");
+      sessionStorage.setItem("username", username);
       checkLogin();
     } else {
       status.innerText = "Password salah";
+    }
+  };
+}
+
+function seedPenyedia() {
+  return new Promise((resolve) => {
+    const tx = authDB.transaction("penyedia", "readonly");
+    const store = tx.objectStore("penyedia");
+    const countReq = store.count();
+
+    countReq.onsuccess = () => {
+      if (countReq.result > 0) {
+        resolve();
+        return;
+      }
+
+      const tx2 = authDB.transaction("penyedia", "readwrite");
+      const store2 = tx2.objectStore("penyedia");
+
+      const data = [
+        { nama: "Atha Catering" },
+        { nama: "CV Papua Jaya Mandiri" },
+        { nama: "PT Nabire Sejahtera" },
+        { nama: "UD Bumi Cendrawasih" },
+        { nama: "PT Mitra Papua Tengah" },
+      ];
+
+      data.forEach((item) => store2.add(item));
+
+      tx2.oncomplete = () => {
+        console.log("Data penyedia berhasil di-seed");
+        resolve();
+      };
+    };
+  });
+}
+
+function loadPenyedia() {
+  const select = document.getElementById("namaPenyedia");
+  select.innerHTML = `<option value="">-- Pilih Penyedia --</option>`;
+
+  const tx = authDB.transaction("penyedia", "readonly");
+  const store = tx.objectStore("penyedia");
+  const req = store.openCursor();
+
+  req.onsuccess = (e) => {
+    const cursor = e.target.result;
+    if (cursor) {
+      const option = document.createElement("option");
+      option.value = cursor.value.nama;
+      option.textContent = cursor.value.nama;
+      select.appendChild(option);
+      cursor.continue();
     }
   };
 }
@@ -214,14 +306,14 @@ async function generatePDF() {
 
     const nomorSPK = document.getElementById("nomorSPK").value;
     const tanggalSPK = formatTanggal(
-      document.getElementById("tanggalSPK").value
+      document.getElementById("tanggalSPK").value,
     );
     const namaPPK = document.getElementById("namaPPK").value;
     const namaPenyedia = document.getElementById("namaPenyedia").value;
     const paketPekerjaan = document.getElementById("paketPekerjaan").value;
     const nomorDPA = document.getElementById("nomorDPA").value;
     const tanggalDPA = formatTanggal(
-      document.getElementById("tanggalDPA").value
+      document.getElementById("tanggalDPA").value,
     );
     const kegiatan = document.getElementById("kegiatan").value;
     const subKegiatan = document.getElementById("subKegiatan").value;
@@ -229,12 +321,12 @@ async function generatePDF() {
     const nilaiKontrak = document.getElementById("nilaiKontrak").value;
     const terbilang = document.getElementById("terbilang").value;
     const rincianPekerjaan = parseRincianPekerjaan(
-      document.getElementById("rincianPekerjaan").value
+      document.getElementById("rincianPekerjaan").value,
     );
     const waktuPelaksanaan = document.getElementById("waktuPelaksanaan").value;
     const lokasi = document.getElementById("lokasi").value;
     const tanggalTTD = formatTanggal(
-      document.getElementById("tanggalTTD").value
+      document.getElementById("tanggalTTD").value,
     );
     const namaPihakPertama = document.getElementById("namaPihakPertama").value;
     const Pangkat = document.getElementById("Pangkat").value;
@@ -264,7 +356,7 @@ async function generatePDF() {
       "Jalan Pepera, Kelurahan Karang Mulia, Kabupaten Nabire - Provinsi Papua Tengah",
       105,
       y,
-      { align: "center" }
+      { align: "center" },
     );
     y += 10;
 
@@ -290,7 +382,7 @@ async function generatePDF() {
     doc.setFontSize(8);
     const alamatLines = doc.splitTextToSize(
       "Jalan Pepera, Kelurahan Karang Mulia, Kabupaten Nabire - Provinsi Papua Tengah",
-      90
+      90,
     );
     doc.text(alamatLines, 105, y + 14);
     y += 22;
@@ -366,14 +458,14 @@ async function generatePDF() {
         ", Tanggal " +
         tanggalDPA,
       10,
-      y
+      y,
     );
     y += 8;
 
     doc.text(
       "Nilai kontrak termasuk Pajak Pertambahan Nilai (PPN) adalah sebesar",
       10,
-      y
+      y,
     );
     doc.setFont("helvetica", "bold");
     doc.text(formatRupiah(nilaiKontrak), 155, y);
@@ -535,14 +627,14 @@ async function generateWord() {
 
     const nomorSPK = document.getElementById("nomorSPK").value;
     const tanggalSPK = formatTanggal(
-      document.getElementById("tanggalSPK").value
+      document.getElementById("tanggalSPK").value,
     );
     const namaPPK = document.getElementById("namaPPK").value;
     const namaPenyedia = document.getElementById("namaPenyedia").value;
     const paketPekerjaan = document.getElementById("paketPekerjaan").value;
     const nomorDPA = document.getElementById("nomorDPA").value;
     const tanggalDPA = formatTanggal(
-      document.getElementById("tanggalDPA").value
+      document.getElementById("tanggalDPA").value,
     );
     const kegiatan = document.getElementById("kegiatan").value;
     const subKegiatan = document.getElementById("subKegiatan").value;
@@ -550,12 +642,12 @@ async function generateWord() {
     const nilaiKontrak = document.getElementById("nilaiKontrak").value;
     const terbilang = document.getElementById("terbilang").value;
     const rincianPekerjaan = parseRincianPekerjaan(
-      document.getElementById("rincianPekerjaan").value
+      document.getElementById("rincianPekerjaan").value,
     );
     const waktuPelaksanaan = document.getElementById("waktuPelaksanaan").value;
     const lokasi = document.getElementById("lokasi").value;
     const tanggalTTD = formatTanggal(
-      document.getElementById("tanggalTTD").value
+      document.getElementById("tanggalTTD").value,
     );
     const namaPihakPertama = document.getElementById("namaPihakPertama").value;
     const Pangkat = document.getElementById("Pangkat").value;
