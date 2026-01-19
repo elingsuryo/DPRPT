@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
@@ -86,9 +86,10 @@
       </div>
 
       <!-- NAMA PENYEDIA -->
+      <!-- NAMA PENYEDIA -->
       <div class="form-group">
         <label for="namaPenyedia">Nama Penyedia</label>
-        <input type="text" id="namaPenyedia" placeholder="Atha Catering" />
+        <select id="namaPenyedia"></select>
       </div>
 
       <!-- PAKET PEKERJAAN -->
@@ -247,7 +248,7 @@
             .register("sw.js")
             .then((reg) => console.log("Service Worker registered:", reg))
             .catch((err) =>
-              console.error("Service Worker registration failed:", err)
+              console.error("Service Worker registration failed:", err),
             );
         }
       });
